@@ -13,10 +13,10 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-qdk#am!b*yp_^-5=b$8a=64)u@&4#8_xf6_%$%0%$%unu=hvp)"
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-qdk#am!b*yp_^-5=b$8a=64)u@&4#8_xf6_%$%0%$%unu=hvp)')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  # Set to True for development
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']  # Configure appropriately for production
 
@@ -46,7 +46,10 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "https://simpleprojex.vercel.app",
 ]
+
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "core.urls"
 
@@ -76,48 +79,65 @@ DATABASES = {
     }
 }
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / 'static'
-]
+# File Upload Settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
-# Media files
-MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME')
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+}
+AWS_DEFAULT_ACL = 'public-read'
+AWS_QUERYSTRING_AUTH = False
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_VERIFY = True
+AWS_S3_SIGNATURE_VERSION = 's3v4'
 
-# Storage configuration for Django 5+
+# Storage Configuration
 STORAGES = {
     "default": {
-        "BACKEND": "storages.backends.s3.S3Storage",
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
         "OPTIONS": {
-            "bucket_name": os.environ.get('AWS_STORAGE_BUCKET_NAME'),
-            "access_key": os.environ.get('AWS_ACCESS_KEY_ID'),
-            "secret_key": os.environ.get('AWS_SECRET_ACCESS_KEY'),
-            "region_name": os.environ.get('AWS_S3_REGION_NAME'),
-            "file_overwrite": False,
-            "location": "media",
-            "querystring_auth": False,
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "region_name": AWS_S3_REGION_NAME,
+            "default_acl": AWS_DEFAULT_ACL,
+            "object_parameters": AWS_S3_OBJECT_PARAMETERS,
+            "querystring_auth": AWS_QUERYSTRING_AUTH,
+            "file_overwrite": AWS_S3_FILE_OVERWRITE,
             "use_ssl": True,
-            "signature_version": "s3v4",
+            "verify": AWS_S3_VERIFY,
+            "signature_version": AWS_S3_SIGNATURE_VERSION,
         },
     },
     "staticfiles": {
-        "BACKEND": "storages.backends.s3.S3Storage",
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
         "OPTIONS": {
-            "bucket_name": os.environ.get('AWS_STORAGE_BUCKET_NAME'),
-            "access_key": os.environ.get('AWS_ACCESS_KEY_ID'),
-            "secret_key": os.environ.get('AWS_SECRET_ACCESS_KEY'),
-            "region_name": os.environ.get('AWS_S3_REGION_NAME'),
-            "file_overwrite": True,
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "region_name": AWS_S3_REGION_NAME,
             "location": "static",
-            "querystring_auth": False,
+            "default_acl": AWS_DEFAULT_ACL,
+            "object_parameters": AWS_S3_OBJECT_PARAMETERS,
+            "querystring_auth": AWS_QUERYSTRING_AUTH,
+            "file_overwrite": True,
             "use_ssl": True,
-            "signature_version": "s3v4",
+            "verify": AWS_S3_VERIFY,
+            "signature_version": AWS_S3_SIGNATURE_VERSION,
         },
     },
 }
+
+# URLs for static and media files
+STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -143,3 +163,28 @@ USE_TZ = True
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Add logging to help debug issues
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'django.log',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+        },
+        'storages': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+    },
+}
