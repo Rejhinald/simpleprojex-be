@@ -968,21 +968,35 @@ class FileUploadSchema(Schema):
 # Add endpoint for client signature upload
 @api.post("/contracts/{contract_id}/upload-client-signature", response=ContractSchema)
 def upload_client_signature(request, contract_id: int, initials: str = Form(...), signature_file: UploadedFile = File(...)):
-    """Upload a signature image for a client and sign the contract"""
-    contract = get_object_or_404(Contract, id=contract_id)
-    
-    # Save the uploaded file
-    file_path = f"signatures/client_{contract_id}_{Path(signature_file.name).name}"
-    saved_path = default_storage.save(file_path, ContentFile(signature_file.read()))
-    
-    # Update the contract - store just the relative path without media/ prefix
-    contract.client_signature = saved_path
-    contract.client_initials = initials
-    contract.client_signed_at = datetime.now()
-    contract.save()
-    
-    print(f"DEBUG - Saved client signature to path: {saved_path}")
-    return contract
+    try:
+        contract = get_object_or_404(Contract, id=contract_id)
+        
+        # Generate a unique filename with timestamp to prevent overwriting
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_extension = os.path.splitext(signature_file.name)[1]
+        filename = f"signatures/client_{contract_id}_{timestamp}{file_extension}"
+        
+        # Read the file content
+        file_content = signature_file.read()
+        
+        # Save to S3 using default_storage (which is configured to use S3)
+        saved_path = default_storage.save(filename, ContentFile(file_content))
+        
+        # Update contract with the saved path
+        contract.client_signature = saved_path
+        contract.client_initials = initials
+        contract.client_signed_at = datetime.now()
+        contract.save()
+        
+        # Log success
+        print(f"Successfully saved signature to {saved_path}")
+        
+        return contract
+        
+    except Exception as e:
+        # Log the error
+        print(f"Error in upload_client_signature: {str(e)}")
+        raise Exception(f"Error uploading signature: {str(e)}")
 
 # Add endpoint for contractor signature upload
 @api.post("/contracts/{contract_id}/upload-contractor-signature", response=ContractSchema)
