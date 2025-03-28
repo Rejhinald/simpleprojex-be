@@ -7,10 +7,11 @@ htmlcov
 /coverage.xml
 .venv
 venv/**
-
+.env
 dist
 test.py
-
+staticfiles/
+media/
 docs/site
 
 .DS_Store
